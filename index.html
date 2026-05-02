@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRank Wars — HITS Algorithm Game</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 1: MAIN MENU
+══════════════════════════════════════════ -->
+<section id="screen-menu" class="screen active">
+  <div class="menu-bg-grid"></div>
+  <div class="menu-content">
+    <div class="game-title">WEBRANK<br>WARS</div>
+    <div class="game-subtitle">HITS Algorithm Game</div>
+    <div class="algo-badge">
+      <span>⚡</span>
+      <span>Hyperlink-Induced Topic Search · Kleinberg 1999</span>
+    </div>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" onclick="showLevels()">▶ &nbsp;PLAY CAMPAIGN</button>
+      <button class="btn btn-gold" onclick="startSandbox()">⬡ &nbsp;SANDBOX MODE</button>
+      <button class="btn btn-secondary" onclick="showExplainer()">📖 &nbsp;HOW HITS WORKS</button>
+    </div>
+    <div style="margin-top:32px; font-family:var(--font-mono); font-size:0.65rem; color:var(--text-dim); text-align:center; line-height:1.8;">
+      <div>Course: Analysis of Algorithms</div>
+      <div>Algorithm: HITS · Hubs &amp; Authorities</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 2: LEVEL SELECT
+══════════════════════════════════════════ -->
+<section id="screen-levels" class="screen">
+  <div class="levels-header">
+    <h2>SELECT MISSION</h2>
+    <p>Complete objectives using the HITS algorithm</p>
+  </div>
+  <div class="levels-grid" id="levels-grid"></div>
+  <button class="btn btn-secondary btn-sm" onclick="showMenu()">← BACK</button>
+</section>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 3: GAME
+══════════════════════════════════════════ -->
+<section id="screen-game" class="screen">
+
+  <!-- Top HUD -->
+  <div class="hud-top">
+    <div class="hud-title" id="hud-level-name">LEVEL 1</div>
+
+    <div class="hud-stat">
+      <span class="stat-label">TIME</span>
+      <span class="stat-value stat-timer" id="hud-timer">60</span>
+    </div>
+    <div class="hud-stat">
+      <span class="stat-label">MOVES</span>
+      <span class="stat-value stat-actions" id="hud-actions">5</span>
+    </div>
+    <div class="hud-stat">
+      <span class="stat-label">SCORE</span>
+      <span class="stat-value stat-score" id="hud-score">0</span>
+    </div>
+
+    <div class="hud-spacer"></div>
+
+    <div class="hud-objective">
+      <span class="obj-label">OBJECTIVE</span>
+      <span id="hud-objective-text">—</span>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-left:16px;">
+      <button class="btn btn-secondary btn-sm btn-icon" onclick="engine.pause()" title="Pause">⏸</button>
+      <button class="btn btn-secondary btn-sm btn-icon" onclick="engine.reset()" title="Reset">↺</button>
+      <button class="btn btn-secondary btn-sm" onclick="showMenu()">MENU</button>
+    </div>
+  </div>
+
+  <!-- Game Layout -->
+  <div class="game-layout">
+
+    <!-- Canvas -->
+    <div class="canvas-wrap">
+      <canvas id="graph-canvas"></canvas>
+
+      <!-- Win Overlay -->
+      <div class="overlay" id="overlay-win">
+        <div class="overlay-card">
+          <div class="overlay-title win">MISSION COMPLETE</div>
+          <div class="overlay-score" id="win-score">+1000 pts</div>
+          <div class="overlay-msg" id="win-msg">Authority threshold reached!</div>
+          <div class="overlay-buttons">
+            <button class="btn btn-primary" id="btn-next-level">NEXT LEVEL →</button>
+            <button class="btn btn-secondary" onclick="engine.reset(); hideOverlays()">RETRY</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lose Overlay -->
+      <div class="overlay" id="overlay-lose">
+        <div class="overlay-card">
+          <div class="overlay-title lose">MISSION FAILED</div>
+          <div class="overlay-msg" id="lose-msg">Objective not reached in time.</div>
+          <div class="overlay-buttons">
+            <button class="btn btn-gold" onclick="engine.reset(); hideOverlays()">↺ RETRY</button>
+            <button class="btn btn-secondary" onclick="showLevels()">LEVEL SELECT</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+
+      <!-- Tools -->
+      <div class="panel-section">
+        <div class="panel-title">Tools</div>
+        <div class="tool-grid">
+          <button class="tool-btn" id="tool-select" onclick="setTool('select')">
+            <span class="tool-icon">↖</span>Select
+          </button>
+          <button class="tool-btn" id="tool-addNode" onclick="setTool('addNode')">
+            <span class="tool-icon">⊕</span>Add Node
+          </button>
+          <button class="tool-btn active" id="tool-addEdge" onclick="setTool('addEdge')">
+            <span class="tool-icon">→</span>Add Link
+          </button>
+          <button class="tool-btn" id="tool-delete" onclick="setTool('delete')">
+            <span class="tool-icon">✕</span>Delete
+          </button>
+        </div>
+      </div>
+
+      <!-- Node Scores -->
+      <div class="panel-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="panel-title">Node Scores</div>
+        <div style="display:flex;gap:12px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.6rem;color:var(--green);">
+            <span style="width:8px;height:8px;background:var(--green);display:inline-block;border-radius:1px;"></span>Hub
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.6rem;color:var(--gold);">
+            <span style="width:8px;height:8px;background:var(--gold);display:inline-block;border-radius:1px;"></span>Authority
+          </div>
+        </div>
+        <div class="scores-list" id="scores-list"></div>
+        <div class="info-iter" id="hits-iters"></div>
+      </div>
+
+      <!-- Quick Info -->
+      <div class="panel-section algo-info">
+        <div class="panel-title">HITS Rules</div>
+        <div class="info-text">
+          <span class="keyword">Authority(v)</span> = Σ hub(u)<br>for all u→v<br><br>
+          <span class="keyword">Hub(u)</span> = Σ auth(v)<br>for all u→v<br><br>
+          <span class="highlight">Left half</span> = Hub score<br>
+          <span class="highlight">Right half</span> = Authority<br><br>
+          <span style="color:var(--gold)">★ Target node</span> has gold ring
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Bottom status bar -->
+  <div class="hud-bottom">
+    <span class="hint-text"><span class="hint-label">HINT: </span><span id="hint-text">Select "Add Link" and click a source node, then a destination node.</span></span>
+    <button class="btn btn-secondary btn-sm" onclick="toggleHint()">💡 Hint</button>
+  </div>
+
+</section>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 4: EXPLAINER
+══════════════════════════════════════════ -->
+<section id="screen-explainer" class="screen">
+  <div class="explainer-inner">
+    <div class="explainer-title">HITS ALGORITHM</div>
+    <div class="explainer-subtitle">Hyperlink-Induced Topic Search · Jon Kleinberg, 1999</div>
+
+    <div class="explainer-step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>THE IDEA</h3>
+        <p>HITS models the web as a <strong>directed graph</strong>. Each page (node) has two scores: <strong style="color:var(--green)">Hub</strong> (how well it links to good pages) and <strong style="color:var(--gold)">Authority</strong> (how many good hubs link to it). Good hubs point to good authorities, and good authorities are pointed to by good hubs — a mutual reinforcement.</p>
+      </div>
+    </div>
+
+    <div class="explainer-step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>INITIALIZATION</h3>
+        <p>All Hub and Authority scores start at <strong>1.0</strong>:</p>
+        <div class="formula">hub(v) = auth(v) = 1.0 for all v</div>
+      </div>
+    </div>
+
+    <div class="explainer-step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>AUTHORITY UPDATE</h3>
+        <p>A page's authority = sum of hub scores of all pages that link TO it:</p>
+        <div class="formula">auth(v) = Σ hub(u) &nbsp; for all u → v</div>
+        <p>Pages linked by many strong hubs get high authority.</p>
+      </div>
+    </div>
+
+    <div class="explainer-step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>HUB UPDATE</h3>
+        <p>A page's hub score = sum of authority scores of all pages it links TO:</p>
+        <div class="formula">hub(u) = Σ auth(v) &nbsp; for all u → v</div>
+        <p>Pages that link to many strong authorities get high hub scores.</p>
+      </div>
+    </div>
+
+    <div class="explainer-step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>NORMALIZATION</h3>
+        <p>After each update, normalize both vectors by their L2 norm to prevent scores from growing unboundedly:</p>
+        <div class="formula">auth = auth / ||auth||₂ &nbsp;&nbsp; hub = hub / ||hub||₂</div>
+      </div>
+    </div>
+
+    <div class="explainer-step">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <h3>CONVERGENCE</h3>
+        <p>Steps 3–5 repeat until the maximum change between iterations falls below threshold ε (typically 10⁻⁶). The algorithm converges to the principal eigenvectors of AᵀA (authorities) and AAᵀ (hubs).</p>
+      </div>
+    </div>
+
+    <table class="complexity-table">
+      <tr><th>Operation</th><th>Time Complexity</th><th>Space</th></tr>
+      <tr><td>Per Iteration</td><td>O(E) — traverses all edges</td><td>O(V)</td></tr>
+      <tr><td>Full Run (k iterations)</td><td>O(k × E)</td><td>O(V + E)</td></tr>
+      <tr><td>Preprocessing</td><td>O(V + E)</td><td>O(V + E)</td></tr>
+    </table>
+
+    <button class="btn btn-primary" onclick="showMenu()" style="margin-bottom:40px;">← BACK TO MENU</button>
+  </div>
+</section>
+
+<!-- ══ Scripts ══ -->
+<script src="js/hits.js"></script>
+<script src="js/graph.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
